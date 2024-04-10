@@ -25,30 +25,12 @@ def Axes (a : Type) := List (a : Type) × EnumType a × Repr a
 /-- A class representing an N-dimensional index. -/
 class NDIndex (idx : Type _) extends IndexType idx where
   /-- The dimensions of the index.
-  TODO make it a `Vector`
+  - [ ] make it a `Vector`
   -/
   dims : Array Nat
 /-- A class representing an N-dimensional array. -/
 class NDArray [PlainDataType a] [IndexType idx] extends DataArrayN a idx where
   shape : NDIndex idx
-
-
-instance : NDIndex (Fin n) where
-  card := n
-  toFin := id
-  fromFin := id
-  dims := #[n]
-
-instance [NDIndex idx] : NDIndex (Idx n × idx) where
-  card := n
-  toFin := id
-  fromFin := id
-  dims := fun i =>
-    match i with
-    | ⟨0, _⟩ => n.toNat
-    | ⟨n+1, _⟩ => inst.dims ⟨n, sorry⟩
-
-
 
 /-- Represents a vector with a specified number of rows. -/
 structure Vector (n : Nat) (Scalar : Type := Float) where
@@ -194,27 +176,55 @@ instance : HMul (Matrix rows cols) (Vector cols) (Vector rows) where
 instance : HDiv (Vector rows) Float (Vector rows) where
   hDiv xs scalar := ⟨xs.data.map (· / scalar)⟩
 
-/-- Absolute value function. -/
-def abs' (x : Float) : Float := if x < 0 then -x else x
+-- /-- Absolute value function. -/
+-- def Float.abs (x : Float) : Float := if x < 0 then -x else x
 
 /-- Finds the maximum value in an array based on a provided function. -/
-def Array.maxBy (xs : Array α) (f : α → Float) : Float := xs.foldl (fun acc x => max acc (f x)) 0.0
-
+-- This may need a safe float wrapper like Rust has.
+def Array.maxBy [Ord b] (xs: Array a) (f: a -> b) : Option b := xs.map f|>.max?
 /-- Finds the maximum absolute value in a vector. -/
-def Vector.maxAbs (xs : Vector rows) : Float := xs.data.maxBy abs'
+def Vector.maxAbs (xs : Vector rows) : Float := Id.run do
+  let mut ans := xs[0]!
+  for i in [1:rows] do
+    if  xs[i]!.abs > ans then
+      ans :=  xs[i]!.abs
+  ans
 
 #eval testMatrix * testVector
+/-- Creates a matrix filled with a specified value. -/
+def Matrix.full (rows cols) (a : Float) : Matrix rows cols := ⟨⟨Array.mkArray (rows * cols) a⟩⟩
+/-- Creates a matrix filled with a specified value that matches the shape of the input matrix. -/
+def Matrix.fullLike (_input : Matrix rows cols) (fillVal : Float := default) : Matrix rows cols := ⟨⟨Array.mkArray (rows * cols) fillVal⟩⟩
 
-def Matrix.full (rows cols) (a : Float) : Matrix rows cols := ⟨Array.mkArray (rows * cols) a⟩
+def Matrix.zerosLike (xs : Matrix rows cols) := xs.fullLike (fillVal := 0.0)
+def Matrix.onesLike (xs : Matrix rows cols) := xs.fullLike (fillVal := 1.0)
 
-def Matrix.fullLike (xs : Matrix rows cols) (fillVal : Float) : Matrix rows cols := ⟨Array.mkArray (rows * cols) fillVal⟩
 
-def Matrix.zerosLike (xs : Matrix rows cols) := xs.fullLike 0.0
-def Matrix.onesLike (xs : Matrix rows cols) := xs.fullLike 1.0
 
+
+/-- Surprisingly, Lean doesn't already have typeclass for Float^Nat-/
+instance : HPow (Float) Nat Float where
+  hPow x n := Id.run do
+    let mut (acc, x, n) := (1.0, x, n)
+    while n > 0 do
+      if n % 2 = 0 then
+        (x,n) := (x * x, n / 2)
+      else
+        (acc, x, n) := (acc * x, x * x, (n - 1) / 2)
+    acc
+#eval 2.2^(3:Nat)
+#eval 1.0/3.
+#eval 1/2.2
+#eval ((2:Nat):Float)
+#eval Nat.toFloat 3
+#eval 1/((1).toFloat)
+/-- The $L^p$-norm of a vector. -/
+def Vector.pnorm (xs : Vector rows) (p : Nat := 2) : Float := xs.data.foldl (fun acc x => acc + (x.abs)^p) 0.0 |> .pow (1/p.toFloat)
 /-- Calculates the norm of a vector. -/
-def Vector.norm (xs : Vector rows) : Float := .sqrt <| xs.data.foldl (fun acc x => acc + x * x) 0.0
-
+def Vector.norm (xs : Vector rows) : Float := xs.pnorm (p:=2)
+-- TODO debug 1 norm
+#eval  (⟨#[1.0, 2.0]⟩: Vector 2).pnorm (p:=1)
+#eval (2.2:Float)^(3:Nat)
 /-- Calculates the distance between two vectors. -/
 def Vector.distance (xs : Vector rows) (ys : Vector rows) : Float := (xs - ys).norm
 
@@ -260,4 +270,3 @@ def SciLean.DataArrayN.parseAxes [PlainDataType α] [Index idx] (xs : DataArrayN
 end SciLean'
 def main : IO Unit :=
   IO.println s!"Hello, {hello}!"
-
