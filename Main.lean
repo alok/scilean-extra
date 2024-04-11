@@ -14,6 +14,11 @@ namespace SciLean'
 variable {Cont : Type _} {Idx : Type _ |> outParam} {Elem : Type _ |> outParam}
 variable {Idx : Type _} [IndexType Idx] [LawfulIndexType Idx] [DecidableEq Idx]
 
+-- NaN is > all values
+private instance : Ord Float where
+  compare x y := if x < y then .lt else if x == y then .eq else .gt
+
+
 /-- A Float for ease-/
 abbrev Scalar := Float
 /-- Returns the length of an array. -/
@@ -176,12 +181,14 @@ instance : HMul (Matrix rows cols) (Vector cols) (Vector rows) where
 instance : HDiv (Vector rows) Float (Vector rows) where
   hDiv xs scalar := ⟨xs.data.map (· / scalar)⟩
 
--- /-- Absolute value function. -/
--- def Float.abs (x : Float) : Float := if x < 0 then -x else x
 
 /-- Finds the maximum value in an array based on a provided function. -/
--- This may need a safe float wrapper like Rust has.
-def Array.maxBy [Ord b] (xs: Array a) (f: a -> b) : Option b := xs.map f|>.max?
+def _root_.Array.maxBy [Ord b] (xs: Array a) (f: a -> b) : Option b := xs.map f|>.max?
+#eval #[1.0, 2.0, 3.0, 4.0].maxBy (· + 1)
+
+def _root_.Array.max [Ord a] (xs: Array a) : Option a := xs.maxBy id
+#eval #[1.0, 2.0, 3.0, 4.0].max
+
 /-- Finds the maximum absolute value in a vector. -/
 def Vector.maxAbs (xs : Vector rows) : Float := Id.run do
   let mut ans := xs[0]!
@@ -265,8 +272,39 @@ def SciLean.DataArrayN.parseAxes [PlainDataType α] [Index idx] (xs : DataArrayN
 -- parseEin array "i j" = [Idx array.size, Idx array.size]
 
 
+def Vector.range (start :Float := 0.0) (end' :Float := 100.0) (step :Float := 1.0) : Vector ((end' - start) / step) := ⟨Array.mkArray ((end' - start) / step) start⟩
+/--
+  Computes the floor of a floating-point number to the nearest integer,
+  returning it as a natural number.
+  - [ ] make work, the ints are arbitrary precision. may require dipping into C++
+-/
+def Float.toInt (x : Float) : Int := sorry
+
+
+
+/--
+  Generates a range vector from `start` to `end'` with a step size of `step`,
+  using floor division to ensure the size is a natural number.
+-/
+def Vector.range (start : Float := 0.0) (end' : Float := 100.0) (step : Float := 1.0) : Vector (floorToNat ((end' - start) / step)) :=
+  ⟨Array.mkArray (floorToNat ((end' - start) / step)) start⟩
+
+
+namespace Micrograd
+
+end Micrograd
+
+
 -- instance Coe String StrippedString where -- strip whitespace automatically with Coe
 -- Could use `Coe` to do data preprocessing since it defines a fixed pipeline
 end SciLean'
 def main : IO Unit :=
   IO.println s!"Hello, {hello}!"
+
+
+
+namespace OrdFloat
+end OrdFloat
+
+#eval Float.isNaN (1/0 - 1/0)
+#eval (1.0/0.0-1.0/0.0  )
