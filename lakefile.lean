@@ -1,6 +1,8 @@
 import Lake
 open Lake DSL
-require scilean from git "https://github.com/lecopivo/SciLean" @ "master"
+
+-- require mathlib from git "https://github.com/leanprover-community/mathlib4" @ "master"
+require scilean from git "https://github.com/lecopivo/SciLean" @ "af67d94b6cc276ec74bfb22b684a0fcdbe4a6c9c"
 -- require LeanCopilot from git "https://github.com/lean-dojo/LeanCopilot.git" @ "v1.2.0"
 require LSpec from git "https://github.com/lurk-lab/LSpec.git" @ "main"
 
